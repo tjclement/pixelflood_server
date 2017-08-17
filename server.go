@@ -7,6 +7,7 @@ import (
 	"strings"
 	"fmt"
 	"bufio"
+	"sync"
 )
 
 type Pixel struct {
@@ -16,12 +17,13 @@ type Pixel struct {
 }
 
 type PixelServer struct {
-	Pixels       [][]Pixel
-	screenWidth  uint16
-	screenHeight uint16
-	socket       *net.Listener
-	connections  []net.Conn
-	shouldClose  bool
+	Pixels            [][]Pixel
+	screenWidth       uint16
+	screenHeight      uint16
+	socket            *net.Listener
+	clientConnections map[string]map[string]*net.Conn
+	clientLocks       map[string]*sync.Mutex
+	shouldClose       bool
 }
 
 func NewServer(width uint16, height uint16) (*PixelServer) {
@@ -36,7 +38,8 @@ func NewServer(width uint16, height uint16) (*PixelServer) {
 		panic(err)
 	}
 
-	return &PixelServer{pixels, width, height, &socket, make([]net.Conn, 0), false}
+	return &PixelServer{pixels, width, height, &socket,
+		map[string]map[string]*net.Conn{}, map[string]*sync.Mutex{}, false}
 }
 
 func (server *PixelServer) Run() {
@@ -48,46 +51,79 @@ func (server *PixelServer) Run() {
 			continue
 		}
 
-		server.connections = append(server.connections, conn)
-		go server.handleRequest(&conn)
+		ip, port := getRemoteIP(&conn)
+		lock := server.getClientLock(ip)
+		lock.Lock()
+		connPool, exists := server.clientConnections[ip]
+
+		if !exists {
+			server.clientConnections[ip] = make(map[string]*net.Conn, 100)
+			connPool = server.clientConnections[ip]
+			server.clientConnections[ip][port] = &conn
+			go server.handleClientConnections(connPool, ip)
+		} else {
+			server.clientConnections[ip][port] = &conn
+		}
+		lock.Unlock()
 	}
 }
 
 func (server *PixelServer) Stop() {
 	server.shouldClose = true
-	for _, conn := range server.connections {
-		conn.Close()
+	for _, lock := range server.clientLocks {
+		lock.Lock()
+	}
+	for _, connections := range server.clientConnections {
+		for _, conn := range connections {
+			(*conn).Close()
+		}
+	}
+	for _, lock := range server.clientLocks {
+		lock.Unlock()
 	}
 	(*server.socket).Close()
 }
 
-func (server *PixelServer) handleRequest(conn *net.Conn) {
-	scanner := bufio.NewScanner(*conn)
+func (server *PixelServer) handleClientConnections(connections map[string]*net.Conn, ip string) {
+	scanners := map[string]*bufio.Scanner{}
+	lock := server.getClientLock(ip)
 
-	for !server.shouldClose && scanner.Scan() {
-		data := scanner.Text()
+	for !server.shouldClose && len(connections) > 0 {
+		lock.Lock()
+		for _, conn := range connections {
+			scanner, exists := scanners[ip]
+			if !exists {
+				scanners[ip] = bufio.NewScanner(*conn)
+				scanner = scanners[ip]
+			}
 
-		// Malformed packet, does not contain recognised command
-		if len(data) < 1 {
-			continue
-		}
+			if scanner.Scan() {
+				data := scanner.Text()
 
-		// Strip newline, and split by spaces to get command components
-		commandComponents := strings.Split(data, " ")
+				// Malformed packet, does not contain recognised command
+				if len(data) < 1 {
+					continue
+				}
 
-		// For every commandComponents data, pass on its components
-		if len(commandComponents) > 0 {
-			x, y, pixel, err := parsePixelCommand(commandComponents)
-			if err == nil {
-				server.setPixel(x, y, pixel)
+				// Strip newline, and split by spaces to get command components
+				commandComponents := strings.Split(data, " ")
+
+				// For every commandComponents data, pass on its components
+				if len(commandComponents) > 0 {
+					x, y, pixel, err := parsePixelCommand(commandComponents)
+					if err == nil {
+						server.setPixel(x, y, pixel)
+					}
+				}
+			} else if err := scanner.Err(); err != nil {
+				fmt.Println("Error reading standard input:", err)
+				(*conn).Close()
+				delete(scanners, ip)
+				return
 			}
 		}
+		lock.Unlock()
 	}
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading standard input:", err)
-		return
-	}
-	(*conn).Close()
 }
 
 func (server *PixelServer) setPixel(x uint16, y uint16, pixel *Pixel) {
@@ -96,6 +132,20 @@ func (server *PixelServer) setPixel(x uint16, y uint16, pixel *Pixel) {
 	}
 
 	server.Pixels[x][y] = *pixel
+}
+
+func getRemoteIP(conn *net.Conn) (string, string) {
+	address := (*conn).RemoteAddr().String()
+	pieces := strings.Split(address, ":")
+	return pieces[0], pieces[1]
+}
+
+func (server *PixelServer) getClientLock(address string) (*sync.Mutex) {
+	_, exists := server.clientLocks[address]
+	if !exists {
+		server.clientLocks[address] = &sync.Mutex{}
+	}
+	return server.clientLocks[address]
 }
 
 func parsePixelCommand(commandPieces []string) (uint16, uint16, *Pixel, error) {

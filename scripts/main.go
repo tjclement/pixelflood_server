@@ -10,8 +10,8 @@ import (
 )
 
 func main() {
-	screen_width := flag.Int("screen_width", 320, "Width of the screen to draw on")
-	screen_height := flag.Int("screen_height", 320, "Height of the screen to draw on")
+	screen_width := flag.Int("screen_width", 400, "Width of the screen to draw on")
+	screen_height := flag.Int("screen_height", 400, "Height of the screen to draw on")
 	display := flag.String("display", "/dev/fb0", "Name of the framebuffer device to write to")
 	profile := flag.Bool("profile", false, "Set to true to enable CPU profiling > cpu.profile")
 	flag.Parse()
