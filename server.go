@@ -100,7 +100,6 @@ func (server *PixelServer) setPixel(x uint16, y uint16, pixel *Pixel) {
 
 func parsePixelCommand(commandPieces []string) (uint16, uint16, *Pixel, error) {
 	if len(commandPieces) != 4 {
-		fmt.Println(commandPieces)
 		return 0, 0, nil, fmt.Errorf("Command length mismatch")
 	}
 
