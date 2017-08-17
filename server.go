@@ -57,14 +57,16 @@ func (server *PixelServer) Run() {
 		connPool, exists := server.clientConnections[ip]
 
 		if !exists {
+			fmt.Println("Adding IP", ip)
 			server.clientConnections[ip] = make(map[string]*net.Conn, 100)
 			connPool = server.clientConnections[ip]
 			server.clientConnections[ip][port] = &conn
+			lock.Unlock()
 			go server.handleClientConnections(connPool, ip)
 		} else {
 			server.clientConnections[ip][port] = &conn
+			lock.Unlock()
 		}
-		lock.Unlock()
 	}
 }
 
@@ -140,12 +142,13 @@ func getRemoteIP(conn *net.Conn) (string, string) {
 	return pieces[0], pieces[1]
 }
 
-func (server *PixelServer) getClientLock(address string) (*sync.Mutex) {
-	_, exists := server.clientLocks[address]
+func (server *PixelServer) getClientLock(ip string) (*sync.Mutex) {
+	_, exists := server.clientLocks[ip]
 	if !exists {
-		server.clientLocks[address] = &sync.Mutex{}
+		fmt.Println("Creating lock for IP", ip)
+		server.clientLocks[ip] = &sync.Mutex{}
 	}
-	return server.clientLocks[address]
+	return server.clientLocks[ip]
 }
 
 func parsePixelCommand(commandPieces []string) (uint16, uint16, *Pixel, error) {
