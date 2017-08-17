@@ -7,7 +7,7 @@ import (
 	"strings"
 	"fmt"
 	"bufio"
-	"sync"
+	"github.com/sasha-s/go-deadlock"
 )
 
 type Pixel struct {
@@ -22,7 +22,7 @@ type PixelServer struct {
 	screenHeight      uint16
 	socket            *net.Listener
 	clientConnections map[string]map[string]*net.Conn
-	clientLocks       map[string]*sync.Mutex
+	clientLocks       map[string]*deadlock.Mutex
 	shouldClose       bool
 }
 
@@ -39,7 +39,7 @@ func NewServer(width uint16, height uint16) (*PixelServer) {
 	}
 
 	return &PixelServer{pixels, width, height, &socket,
-		map[string]map[string]*net.Conn{}, map[string]*sync.Mutex{}, false}
+		map[string]map[string]*net.Conn{}, map[string]*deadlock.Mutex{}, false}
 }
 
 func (server *PixelServer) Run() {
@@ -53,27 +53,31 @@ func (server *PixelServer) Run() {
 
 		ip, port := getRemoteIP(&conn)
 		lock := server.getClientLock(ip)
-		lock.Lock()
+		fmt.Println("Locking r")
+		(*lock).Lock()
 		connPool, exists := server.clientConnections[ip]
 
 		if !exists {
-			//fmt.Println("Adding IP", ip)
+			fmt.Println("Adding IP", ip)
 			server.clientConnections[ip] = make(map[string]*net.Conn, 100)
 			connPool = server.clientConnections[ip]
 			server.clientConnections[ip][port] = &conn
-			lock.Unlock()
-			go server.handleClientConnections(connPool, ip)
+			fmt.Println("Unlocking r")
+			(*lock).Unlock()
+			go server.handleClientConnections(connPool, lock)
 		} else {
 			server.clientConnections[ip][port] = &conn
-			lock.Unlock()
+			fmt.Println("Unlocking r")
+			(*lock).Unlock()
 		}
 	}
 }
 
 func (server *PixelServer) Stop() {
+	fmt.Println("Stopping")
 	server.shouldClose = true
 	for _, lock := range server.clientLocks {
-		lock.Lock()
+		(*lock).Lock()
 	}
 	for _, connections := range server.clientConnections {
 		for _, conn := range connections {
@@ -81,22 +85,19 @@ func (server *PixelServer) Stop() {
 		}
 	}
 	for _, lock := range server.clientLocks {
-		lock.Unlock()
+		(*lock).Unlock()
 	}
 	(*server.socket).Close()
 }
 
-func (server *PixelServer) handleClientConnections(connections map[string]*net.Conn, ip string) {
-	//fmt.Println("Handling")
+func (server *PixelServer) handleClientConnections(connections map[string]*net.Conn, lock *deadlock.Mutex) {
+	fmt.Println("Handling")
 	scanners := map[string]*bufio.Scanner{}
-	lock := server.getClientLock(ip)
-
-
-	//fmt.Println("Yas", server.shouldClose, len(connections))
 
 	for !server.shouldClose && len(connections) > 0 {
-		//fmt.Println("Locking")
-		lock.Lock()
+		fmt.Println("Locking hcc")
+		(*lock).Lock()
+		fmt.Println("Locked hcc")
 		for _, conn := range connections {
 			address := (*conn).RemoteAddr().String()
 			scanner, exists := scanners[address]
@@ -105,12 +106,15 @@ func (server *PixelServer) handleClientConnections(connections map[string]*net.C
 				scanner = scanners[address]
 			}
 
+			fmt.Println("Scanning hcc")
 			if scanner.Scan() {
+				fmt.Println("Scanned hcc")
 				data := scanner.Text()
+				fmt.Println("Data hcc")
 
 				// Malformed packet, does not contain recognised command
 				if len(data) < 1 {
-					//fmt.Println("Malformed")
+					fmt.Println("Malformed")
 					continue
 				}
 
@@ -128,14 +132,16 @@ func (server *PixelServer) handleClientConnections(connections map[string]*net.C
 			} else if err := scanner.Err(); err != nil {
 				fmt.Println("Error reading standard input:", err)
 				(*conn).Close()
-				delete(scanners, ip)
-				//fmt.Println("Unlocking emgc")
-				lock.Unlock()
+				delete(scanners, address)
+				fmt.Println("Unlocking emgc")
+				(*lock).Unlock()
 				return
+			} else {
+				fmt.Println("Other")
 			}
 		}
-		//fmt.Println("Unlocking")
-		lock.Unlock()
+		fmt.Println("Unlocking hcc")
+		(*lock).Unlock()
 	}
 }
 
@@ -153,11 +159,11 @@ func getRemoteIP(conn *net.Conn) (string, string) {
 	return pieces[0], pieces[1]
 }
 
-func (server *PixelServer) getClientLock(ip string) (*sync.Mutex) {
+func (server *PixelServer) getClientLock(ip string) (*deadlock.Mutex) {
 	_, exists := server.clientLocks[ip]
 	if !exists {
-		//fmt.Println("Creating lock for IP", ip)
-		server.clientLocks[ip] = &sync.Mutex{}
+		fmt.Println("Creating lock for IP", ip)
+		server.clientLocks[ip] = &deadlock.Mutex{}
 	}
 	return server.clientLocks[ip]
 }
