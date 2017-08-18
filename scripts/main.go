@@ -13,6 +13,7 @@ func main() {
 	screen_width := flag.Int("screen_width", 320, "Width of the screen to draw on")
 	screen_height := flag.Int("screen_height", 400, "Height of the screen to draw on")
 	display := flag.String("display", "/dev/fb0", "Name of the framebuffer device to write to")
+	no_rendering := flag.Bool("no_rendering", false, "Set to true to only start server, and skip actual rendering")
 	profile := flag.Bool("profile", false, "Set to true to enable CPU profiling > cpu.profile")
 	flag.Parse()
 
@@ -31,12 +32,13 @@ func main() {
 	go server.Run()
 	defer server.Stop()
 
+	if !*no_rendering {
+		fmt.Println("Starting render thread")
+		renderer := pixelflood_server.NewRenderer(server, *display, uint16(*screen_width), uint16(*screen_height))
+		renderer.Initialise()
+		go renderer.Run()
+		defer renderer.Stop()
+	}
 
-	fmt.Println("Starting render thread")
-	renderer := pixelflood_server.NewRenderer(server, *display, uint16(*screen_width), uint16(*screen_height))
-	renderer.Initialise()
-	go renderer.Run()
-	defer renderer.Stop()
-
-	<- make(chan int)
+	fmt.Scanln()
 }

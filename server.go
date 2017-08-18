@@ -7,7 +7,8 @@ import (
 	"strings"
 	"fmt"
 	"bufio"
-	"github.com/sasha-s/go-deadlock"
+	"time"
+	"github.com/orcaman/concurrent-map"
 )
 
 type Pixel struct {
@@ -21,8 +22,7 @@ type PixelServer struct {
 	screenWidth       uint16
 	screenHeight      uint16
 	socket            *net.Listener
-	clientConnections map[string]map[string]*net.Conn
-	clientLocks       map[string]*deadlock.Mutex
+	clientConnections cmap.ConcurrentMap
 	shouldClose       bool
 }
 
@@ -39,11 +39,12 @@ func NewServer(width uint16, height uint16) (*PixelServer) {
 	}
 
 	return &PixelServer{pixels, width, height, &socket,
-		map[string]map[string]*net.Conn{}, map[string]*deadlock.Mutex{}, false}
+		cmap.New(), false}
 }
 
 func (server *PixelServer) Run() {
 	for !server.shouldClose {
+		//fmt.Println("Accepting")
 		conn, err := (*server.socket).Accept()
 
 		if err != nil {
@@ -51,54 +52,51 @@ func (server *PixelServer) Run() {
 			continue
 		}
 
-		ip, port := getRemoteIP(&conn)
-		lock := server.getClientLock(ip)
-		fmt.Println("Locking r")
-		(*lock).Lock()
-		connPool, exists := server.clientConnections[ip]
+		//fmt.Println("Accepted")
 
-		if !exists {
-			fmt.Println("Adding IP", ip)
-			server.clientConnections[ip] = make(map[string]*net.Conn, 100)
-			connPool = server.clientConnections[ip]
-			server.clientConnections[ip][port] = &conn
-			fmt.Println("Unlocking r")
-			(*lock).Unlock()
-			go server.handleClientConnections(connPool, lock)
-		} else {
-			server.clientConnections[ip][port] = &conn
-			fmt.Println("Unlocking r")
-			(*lock).Unlock()
-		}
+		go func(conn *net.Conn){
+			//fmt.Println("Registering")
+			ip, port := getRemoteIP(conn)
+			//fmt.Println("Getting info")
+			connPool, exists := server.clientConnections.Get(ip)
+
+			//fmt.Println("Exists", exists)
+			if !exists {
+				//fmt.Println("Adding IP", ip)
+				server.clientConnections.Set(ip, cmap.New())
+				connPool, _ = server.clientConnections.Get(ip)
+				connPool.(cmap.ConcurrentMap).Set(port, conn)
+				go server.handleClientConnections(connPool.(cmap.ConcurrentMap))
+			} else {
+				//fmt.Println("IP already present", ip)
+				connPool, _ = server.clientConnections.Get(ip)
+				connPool.(cmap.ConcurrentMap).Set(port, conn)
+			}
+		}(&conn)
 	}
 }
 
 func (server *PixelServer) Stop() {
-	fmt.Println("Stopping")
+	//fmt.Println("Stopping")
 	server.shouldClose = true
-	for _, lock := range server.clientLocks {
-		(*lock).Lock()
-	}
-	for _, connections := range server.clientConnections {
-		for _, conn := range connections {
-			(*conn).Close()
+	for client := range server.clientConnections.IterBuffered() {
+		connections := client.Val.(cmap.ConcurrentMap)
+		for connection := range connections.IterBuffered() {
+			conn := connection.Val.(*net.Conn)
+			(*conn).(net.Conn).Close()
+			connections.Remove(connection.Key)
 		}
-	}
-	for _, lock := range server.clientLocks {
-		(*lock).Unlock()
 	}
 	(*server.socket).Close()
 }
 
-func (server *PixelServer) handleClientConnections(connections map[string]*net.Conn, lock *deadlock.Mutex) {
-	fmt.Println("Handling")
+func (server *PixelServer) handleClientConnections(connections cmap.ConcurrentMap) {
+	//fmt.Println("Handling")
 	scanners := map[string]*bufio.Scanner{}
 
-	for !server.shouldClose && len(connections) > 0 {
-		fmt.Println("Locking hcc")
-		(*lock).Lock()
-		fmt.Println("Locked hcc")
-		for _, conn := range connections {
+	for !server.shouldClose {
+		for item := range connections.IterBuffered() {
+			conn := item.Val.(*net.Conn)
 			address := (*conn).RemoteAddr().String()
 			scanner, exists := scanners[address]
 			if !exists {
@@ -106,15 +104,16 @@ func (server *PixelServer) handleClientConnections(connections map[string]*net.C
 				scanner = scanners[address]
 			}
 
-			fmt.Println("Scanning hcc")
+			//fmt.Println("Scanning hcc", address)
+			(*conn).SetReadDeadline(time.Now().Add(1 * time.Second))
 			if scanner.Scan() {
-				fmt.Println("Scanned hcc")
+				//fmt.Println("Scanned hcc", address)
 				data := scanner.Text()
-				fmt.Println("Data hcc")
+				//fmt.Println("Data hcc", address)
 
 				// Malformed packet, does not contain recognised command
 				if len(data) < 1 {
-					fmt.Println("Malformed")
+					//fmt.Println("Malformed")
 					continue
 				}
 
@@ -132,16 +131,12 @@ func (server *PixelServer) handleClientConnections(connections map[string]*net.C
 			} else if err := scanner.Err(); err != nil {
 				fmt.Println("Error reading standard input:", err)
 				(*conn).Close()
+				connections.Remove(item.Key)
 				delete(scanners, address)
-				fmt.Println("Unlocking emgc")
-				(*lock).Unlock()
-				return
 			} else {
-				fmt.Println("Other")
+				//fmt.Println("No data")
 			}
 		}
-		fmt.Println("Unlocking hcc")
-		(*lock).Unlock()
 	}
 }
 
@@ -157,15 +152,6 @@ func getRemoteIP(conn *net.Conn) (string, string) {
 	address := (*conn).RemoteAddr().String()
 	pieces := strings.Split(address, ":")
 	return pieces[0], pieces[1]
-}
-
-func (server *PixelServer) getClientLock(ip string) (*deadlock.Mutex) {
-	_, exists := server.clientLocks[ip]
-	if !exists {
-		fmt.Println("Creating lock for IP", ip)
-		server.clientLocks[ip] = &deadlock.Mutex{}
-	}
-	return server.clientLocks[ip]
 }
 
 func parsePixelCommand(commandPieces []string) (uint16, uint16, *Pixel, error) {
