@@ -2,11 +2,12 @@ package pixelflood_server
 
 import (
 	"net"
-	"log"
+	//"log"
 	"strconv"
 	"strings"
 	"fmt"
 	"bufio"
+	"github.com/tjclement/framebuffer"
 )
 
 type Pixel struct {
@@ -19,12 +20,13 @@ type PixelServer struct {
 	Pixels       [][]Pixel
 	screenWidth  uint16
 	screenHeight uint16
+	framebuffer  *framebuffer.Framebuffer
 	socket       *net.Listener
 	connections  []net.Conn
 	shouldClose  bool
 }
 
-func NewServer(width uint16, height uint16) (*PixelServer) {
+func NewServer(framebuffer *framebuffer.Framebuffer, width uint16, height uint16) (*PixelServer) {
 	pixels := make([][]Pixel, width)
 	for i := uint16(0); i < width; i++ {
 		pixels[i] = make([]Pixel, height)
@@ -36,7 +38,7 @@ func NewServer(width uint16, height uint16) (*PixelServer) {
 		panic(err)
 	}
 
-	return &PixelServer{pixels, width, height, &socket, make([]net.Conn, 0), false}
+	return &PixelServer{pixels, width, height, framebuffer, &socket, make([]net.Conn, 0), false}
 }
 
 func (server *PixelServer) Run() {
@@ -44,7 +46,7 @@ func (server *PixelServer) Run() {
 		conn, err := (*server.socket).Accept()
 
 		if err != nil {
-			log.Println("Error accepting new connection: ", err)
+			//log.Println("Error accepting new connection: ", err)
 			continue
 		}
 
@@ -84,7 +86,7 @@ func (server *PixelServer) handleRequest(conn *net.Conn) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading standard input:", err)
+		//fmt.Println("Error reading standard input:", err)
 		return
 	}
 	(*conn).Close()
@@ -95,7 +97,8 @@ func (server *PixelServer) setPixel(x uint16, y uint16, pixel *Pixel) {
 		return
 	}
 
-	server.Pixels[x][y] = *pixel
+	//server.Pixels[x][y] = *pixel
+	server.framebuffer.WritePixel(int(x), int(y), pixel.R, pixel.G, pixel.B, 0)
 }
 
 func parsePixelCommand(commandPieces []string) (uint16, uint16, *Pixel, error) {
