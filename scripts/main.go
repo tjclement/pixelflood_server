@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/tjclement/pixelflood-server"
+	"github.com/tjclement/pixelflood_server"
 	"fmt"
 	"flag"
 	"runtime/pprof"
