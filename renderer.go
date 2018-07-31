@@ -15,7 +15,7 @@ type Renderer struct {
 }
 
 func NewRenderer(server *PixelServer, display string, width uint16, height uint16) (*Renderer) {
-	fb, err := framebuffer.Init(display)
+	fb, err := framebuffer.Open(display)
 
 	if err != nil {
 		log.Panic(err)
@@ -25,7 +25,7 @@ func NewRenderer(server *PixelServer, display string, width uint16, height uint1
 }
 
 func (renderer *Renderer) Initialise() {
-	(*renderer.frameBuffer).Clear(0, 0, 0, 0)
+	(*renderer.frameBuffer).Flush()
 }
 
 func (renderer *Renderer) Run() {
