@@ -1,14 +1,14 @@
 package pixelflood_server
 
 import (
-	"github.com/tjclement/framebuffer"
+	"github.com/tjclement/framebuffer-go"
 	"log"
 	"time"
 )
 
 type Renderer struct {
 	server       *PixelServer
-	frameBuffer  *framebuffer.Framebuffer
+	frameBuffer  *framebuffer.FrameBuffer
 	screenWidth  uint16
 	screenHeight uint16
 	shouldClose  bool
