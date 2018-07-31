@@ -34,7 +34,7 @@ func (renderer *Renderer) Run() {
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
 				pixel := renderer.server.Pixels[x][y]
-				renderer.frameBuffer.WritePixel(x, y, pixel.R, pixel.G, pixel.B, uint8(0))
+				renderer.frameBuffer.WritePixel(x, y, pixel.R, pixel.G, pixel.B)
 			}
 		}
 		time.Sleep(16666 * time.Microsecond) // 16.666 ms, 1 frame in 60fps refresh rate
