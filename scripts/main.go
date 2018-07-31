@@ -7,11 +7,13 @@ import (
 	"runtime/pprof"
 	"os"
 	"log"
+	"github.com/tjclement/framebuffer-go"
+	"os/signal"
 )
 
 func main() {
 	screen_width := flag.Int("screen_width", 320, "Width of the screen to draw on")
-	screen_height := flag.Int("screen_height", 320, "Height of the screen to draw on")
+	screen_height := flag.Int("screen_height", 400, "Height of the screen to draw on")
 	display := flag.String("display", "/dev/fb0", "Name of the framebuffer device to write to")
 	profile := flag.Bool("profile", false, "Set to true to enable CPU profiling > cpu.profile")
 	flag.Parse()
@@ -26,17 +28,19 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
+	fb, err := framebuffer.Open(*display)
+
+	if err != nil {
+		log.Panic(err)
+	}
+	fb.Flush()
+
 	fmt.Println("Starting server")
-	server := pixelflood_server.NewServer(uint16(*screen_width), uint16(*screen_height))
+	server := pixelflood_server.NewServer(fb, uint16(*screen_width), uint16(*screen_height))
 	go server.Run()
 	defer server.Stop()
 
-
-	fmt.Println("Starting render thread")
-	renderer := pixelflood_server.NewRenderer(server, *display, uint16(*screen_width), uint16(*screen_height))
-	renderer.Initialise()
-	go renderer.Run()
-	defer renderer.Stop()
-
-	<- make(chan int)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<- c
 }

@@ -2,11 +2,13 @@ package pixelflood_server
 
 import (
 	"net"
-	"log"
+	//"log"
 	"strconv"
 	"strings"
 	"fmt"
 	"bufio"
+	"github.com/tjclement/framebuffer-go"
+	"math"
 )
 
 type Pixel struct {
@@ -19,12 +21,15 @@ type PixelServer struct {
 	Pixels       [][]Pixel
 	screenWidth  uint16
 	screenHeight uint16
+	framebuffer  *framebuffer.FrameBuffer
 	socket       *net.Listener
 	connections  []net.Conn
 	shouldClose  bool
+	intDict      map[string]int
+	byteDict     map[string]uint8
 }
 
-func NewServer(width uint16, height uint16) (*PixelServer) {
+func NewServer(framebuffer *framebuffer.FrameBuffer, width uint16, height uint16) (*PixelServer) {
 	pixels := make([][]Pixel, width)
 	for i := uint16(0); i < width; i++ {
 		pixels[i] = make([]Pixel, height)
@@ -36,7 +41,21 @@ func NewServer(width uint16, height uint16) (*PixelServer) {
 		panic(err)
 	}
 
-	return &PixelServer{pixels, width, height, &socket, make([]net.Conn, 0), false}
+	server := PixelServer{pixels, width, height, framebuffer, &socket, make([]net.Conn, 0), false, map[string]int{}, map[string]uint8{}}
+
+	for i := 0; i < 256; i++ {
+		stringVal := fmt.Sprintf("%02x", i)
+		server.byteDict[stringVal] = uint8(i)
+		stringVal = fmt.Sprintf("%02X", i)
+		server.byteDict[stringVal] = uint8(i)
+	}
+
+	max := int(math.Max(float64(width), float64(height)))
+	for i := 0; i < max; i++ {
+		server.intDict[strconv.Itoa(i)] = i
+	}
+
+	return &server
 }
 
 func (server *PixelServer) Run() {
@@ -44,7 +63,7 @@ func (server *PixelServer) Run() {
 		conn, err := (*server.socket).Accept()
 
 		if err != nil {
-			log.Println("Error accepting new connection: ", err)
+			//log.Println("Error accepting new connection: ", err)
 			continue
 		}
 
@@ -77,61 +96,77 @@ func (server *PixelServer) handleRequest(conn *net.Conn) {
 
 		// For every commandComponents data, pass on its components
 		if len(commandComponents) > 0 {
-			x, y, pixel, err := parsePixelCommand(commandComponents)
+			x, y, r, g, b, err := server.parsePixelCommand(commandComponents)
 			if err == nil {
-				server.setPixel(x, y, pixel)
+				//fmt.Println(data, "|", x, y, r, g, b)
+				server.setPixel(x, y, r, g, b)
+			} else {
+				//fmt.Println("Error parsing:", err, data, (*conn).RemoteAddr().String())
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading standard input:", err)
+		//fmt.Println("Error reading standard input:", err)
 		return
 	}
 	(*conn).Close()
 }
 
-func (server *PixelServer) setPixel(x uint16, y uint16, pixel *Pixel) {
+func (server *PixelServer) setPixel(x uint16, y uint16, r uint8, g uint8, b uint8) {
 	if x >= server.screenWidth || y >= server.screenHeight {
 		return
 	}
 
-	server.Pixels[x][y] = *pixel
+	//server.Pixels[x][y] = *pixel
+	server.framebuffer.WritePixel(int(x), int(y), r, g, b)
 }
 
-func parsePixelCommand(commandPieces []string) (uint16, uint16, *Pixel, error) {
+func (server *PixelServer) parsePixelCommand(commandPieces []string) (uint16, uint16, uint8, uint8, uint8, error) {
 	if len(commandPieces) != 4 {
-		return 0, 0, nil, fmt.Errorf("Command length mismatch")
+		return 0, 0, 0, 0, 0, fmt.Errorf("Command length mismatch")
 	}
 
-	x, err := strconv.ParseUint(commandPieces[1], 10, 16)
-	if err != nil {
-		return 0, 0, nil, err
+	x, y := parseUint16(commandPieces[1]), parseUint16(commandPieces[2])
+
+	if len(commandPieces[3]) != 6 {
+		return 0, 0, 0, 0, 0, fmt.Errorf("RGB length mismatch %s", commandPieces[3])
 	}
 
-	y, err := strconv.ParseUint(commandPieces[2], 10, 16)
-	if err != nil {
-		return 0, 0, nil, err
-	}
+	pixelValue := parseHexRGB(commandPieces[3])
 
-	pixelValue := commandPieces[3]
-	if len(pixelValue) != 6 {
-		return 0, 0, nil, fmt.Errorf("Pixel length mismatch")
-	}
+	r, g, b := uint8(pixelValue&0xFF0000>>16), uint8(pixelValue&0x00FF00>>8), uint8(pixelValue&0x0000FF)
 
-	r, err := strconv.ParseUint(pixelValue[0:2], 16, 8)
-	if err != nil {
-		return 0, 0, nil, err
-	}
+	return uint16(x), uint16(y), r, g, b, nil
+}
 
-	g, err := strconv.ParseUint(pixelValue[2:4], 16, 8)
-	if err != nil {
-		return 0, 0, nil, err
-	}
+func parseHexRGB(hex string) uint32 {
+	length := len(hex)
+	result := uint32(0)
 
-	b, err := strconv.ParseUint(pixelValue[4:6], 16, 8)
-	if err != nil {
-		return 0, 0, nil, err
-	}
+	for i := length - 1; i > 0; i -= 2 {
+		low := hex[i]
+		high := hex[i-1]
 
-	return uint16(x), uint16(y), &Pixel{uint8(r), uint8(g), uint8(b)}, nil
+		// ¯\_(ツ)_/¯
+		high = (high & 0xf) + ((high&0x40)>>6)*9
+		low = (low & 0xf) + ((low&0x40)>>6)*9
+
+		result += uint32(((high << 4) | low)) << uint((length-( i+1 ))*4)
+	}
+	return result
+}
+
+func parseUint16(numeric string) uint16 {
+	length := len(numeric)
+	var result uint16
+
+	for i := length - 1; i >= 0; i-- {
+		char := uint16(numeric[i] - 48)
+		exponent := length-( i+1 )
+		for time := 0; time < exponent; time++ {
+			char *= 10
+		}
+		result += char
+	}
+	return result
 }
