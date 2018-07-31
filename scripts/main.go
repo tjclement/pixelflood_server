@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/tjclement/pixelflut-go"
+	"github.com/tjclement/pixelflood-server"
 	"fmt"
 	"flag"
 	"runtime/pprof"
