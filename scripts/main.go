@@ -12,8 +12,8 @@ import (
 )
 
 func main() {
-	screen_width := flag.Int("screen_width", 320, "Width of the screen to draw on")
-	screen_height := flag.Int("screen_height", 400, "Height of the screen to draw on")
+	screen_width := flag.Int("screen_width", 620, "Width of the screen to draw on")
+	screen_height := flag.Int("screen_height", 200, "Height of the screen to draw on")
 	display := flag.String("display", "/dev/fb0", "Name of the framebuffer device to write to")
 	profile := flag.Bool("profile", false, "Set to true to enable CPU profiling > cpu.profile")
 	proxy := flag.Bool("proxy", false, "Set to true to disable writing to screen, and instead proxy to other pixelflood servers")
@@ -47,12 +47,21 @@ func main() {
 
 	if *proxy {
 		fmt.Println("Starting proxies")
-		proxy1 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1234", 0, 0, uint16(*screen_width/2), uint16(*screen_height/2), server)
-		proxy2 := pixelflood_server.NewProxy("pixelpush2.campzone.lan:1234", uint16(*screen_width/2), uint16(*screen_height/2), uint16(*screen_width), uint16(*screen_height), server)
+		proxy1 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1234", 0, 0, uint16(*screen_width/2), uint16(*screen_height), server)
+		fmt.Println("Connecting proxy 1")
+		err := proxy1.Connect()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("Successfully started proxy 1")
 		go proxy1.Run()
-		go proxy2.Run()
 		defer proxy1.Stop()
-		defer proxy2.Stop()
+
+		//proxy2 := pixelflood_server.NewProxy("pixelpush2.campzone.lan:1234", uint16(*screen_width/2), uint16(*screen_height/2), uint16(*screen_width), uint16(*screen_height), server)
+
+		//go proxy2.Run()
+		//defer proxy2.Stop()
 	}
 
 	c := make(chan os.Signal, 1)

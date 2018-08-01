@@ -36,12 +36,6 @@ func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width ui
 		pixels[i] = make([]Pixel, height)
 	}
 
-	for i := 0; i < int(width); i++ {
-		for j := 0; j < int(height); j++ {
-			pixels[i][j] = Pixel{0,0,0}
-		}
-	}
-
 	socket, err := net.Listen("tcp", ":1234")
 
 	if err != nil {
