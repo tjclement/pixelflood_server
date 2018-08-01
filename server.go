@@ -7,7 +7,7 @@ import (
 	"strings"
 	"fmt"
 	"bufio"
-	"github.com/tjclement/framebuffer-go"
+	"github.com/tjclement/framebuffer"
 	"math"
 )
 
@@ -21,7 +21,7 @@ type PixelServer struct {
 	Pixels       [][]Pixel
 	screenWidth  uint16
 	screenHeight uint16
-	framebuffer  *framebuffer.FrameBuffer
+	framebuffer  *framebuffer.Framebuffer
 	shouldRender bool
 	socket       *net.Listener
 	connections  []net.Conn
@@ -30,7 +30,7 @@ type PixelServer struct {
 	byteDict     map[string]uint8
 }
 
-func NewServer(framebuffer *framebuffer.FrameBuffer, shouldRender bool, width uint16, height uint16) (*PixelServer) {
+func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width uint16, height uint16) (*PixelServer) {
 	pixels := make([][]Pixel, width)
 	for i := uint16(0); i < width; i++ {
 		pixels[i] = make([]Pixel, height)
@@ -123,8 +123,7 @@ func (server *PixelServer) setPixel(x uint16, y uint16, r uint8, g uint8, b uint
 	server.Pixels[x][y].B = b
 
 	if server.shouldRender {
-		server.framebuffer.WritePixel(int(x), int(y), r, g, b)
-		server.framebuffer.Flush()
+		server.framebuffer.WritePixel(int(x), int(y), r, g, b, 0)
 	}
 }
 

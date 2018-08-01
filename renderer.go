@@ -1,21 +1,21 @@
 package pixelflood_server
 
 import (
-	"github.com/tjclement/framebuffer-go"
+	"github.com/tjclement/framebuffer"
 	"log"
 	"time"
 )
 
 type Renderer struct {
 	server       *PixelServer
-	frameBuffer  *framebuffer.FrameBuffer
+	frameBuffer  *framebuffer.Framebuffer
 	screenWidth  uint16
 	screenHeight uint16
 	shouldClose  bool
 }
 
 func NewRenderer(server *PixelServer, display string, width uint16, height uint16) (*Renderer) {
-	fb, err := framebuffer.Open(display)
+	fb, err := framebuffer.Init(display)
 
 	if err != nil {
 		log.Panic(err)
@@ -25,7 +25,7 @@ func NewRenderer(server *PixelServer, display string, width uint16, height uint1
 }
 
 func (renderer *Renderer) Initialise() {
-	(*renderer.frameBuffer).Flush()
+	(*renderer.frameBuffer).Clear(0, 0, 0, 0)
 }
 
 func (renderer *Renderer) Run() {
@@ -34,7 +34,7 @@ func (renderer *Renderer) Run() {
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
 				pixel := renderer.server.Pixels[x][y]
-				renderer.frameBuffer.WritePixel(x, y, pixel.R, pixel.G, pixel.B)
+				renderer.frameBuffer.WritePixel(x, y, pixel.R, pixel.G, pixel.B, 0)
 			}
 		}
 		time.Sleep(16666 * time.Microsecond) // 16.666 ms, 1 frame in 60fps refresh rate
