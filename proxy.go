@@ -49,7 +49,7 @@ func (p *Proxy) Run() {
 		}
 	}
 
-	time.Sleep(100 * time.Millisecond) // 100 ms, 10x per second
+	time.Sleep(10 * time.Millisecond) // 10 ms, 100x per second
 }
 
 func (p *Proxy) Stop() {

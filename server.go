@@ -111,7 +111,6 @@ func (server *PixelServer) runUdp() {
 		}
 
 		x, y, r, g, b := uint16(payload[0] << 8 + payload[1]), uint16(payload[2] << 8 + payload[3]), payload[4], payload[5], payload[6]
-		fmt.Println("UDP", x, y, r, g, b)
 		server.setPixel(x, y, r, g, b)
 	}
 }
