@@ -29,12 +29,16 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fb, err := framebuffer.Init(*display)
+	var fb *framebuffer.Framebuffer
 
-	if err != nil {
-		log.Panic(err)
+	if !*proxy {
+		fb, err := framebuffer.Init(*display)
+
+		if err != nil {
+			fmt.Printf("Error setting framebuffer: %s\r\n", err.Error())
+		}
+		fb.Clear(0, 0, 0, 0)
 	}
-	fb.Clear(0, 0, 0, 0)
 
 	fmt.Println("Starting server")
 	server := pixelflood_server.NewServer(fb, !*proxy, uint16(*screen_width), uint16(*screen_height))
