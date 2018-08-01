@@ -7,7 +7,7 @@ import (
 	"runtime/pprof"
 	"os"
 	"log"
-	"github.com/tjclement/framebuffer-go"
+	"github.com/tjclement/framebuffer"
 	"os/signal"
 )
 
@@ -29,12 +29,12 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	fb, err := framebuffer.Open(*display)
+	fb, err := framebuffer.Init(*display)
 
 	if err != nil {
 		log.Panic(err)
 	}
-	fb.Flush()
+	fb.Clear(0, 0, 0, 0)
 
 	fmt.Println("Starting server")
 	server := pixelflood_server.NewServer(fb, !*proxy, uint16(*screen_width), uint16(*screen_height))
