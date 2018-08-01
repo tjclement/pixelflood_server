@@ -121,7 +121,11 @@ func (server *PixelServer) setPixel(x uint16, y uint16, r uint8, g uint8, b uint
 	server.Pixels[x][y].R = r
 	server.Pixels[x][y].G = g
 	server.Pixels[x][y].B = b
-	server.framebuffer.WritePixel(int(x), int(y), r, g, b)
+
+	if server.shouldRender {
+		server.framebuffer.WritePixel(int(x), int(y), r, g, b)
+		server.framebuffer.Flush()
+	}
 }
 
 func (server *PixelServer) parsePixelCommand(commandPieces []string) (uint16, uint16, uint8, uint8, uint8, error) {
