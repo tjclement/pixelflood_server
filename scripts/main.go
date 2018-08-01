@@ -33,7 +33,9 @@ func main() {
 	var fb *framebuffer.Framebuffer
 
 	if !*proxy {
-		fb, err := framebuffer.Init(*display)
+		fmt.Println("Initialising framebuffer mapping")
+		fb_init, err := framebuffer.Init(*display)
+		fb = fb_init
 
 		if err != nil {
 			fmt.Printf("Error setting framebuffer: %s\r\n", err.Error())
