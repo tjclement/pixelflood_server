@@ -22,6 +22,7 @@ type PixelServer struct {
 	screenWidth  uint16
 	screenHeight uint16
 	framebuffer  *framebuffer.FrameBuffer
+	shouldRender bool
 	socket       *net.Listener
 	connections  []net.Conn
 	shouldClose  bool
@@ -29,7 +30,7 @@ type PixelServer struct {
 	byteDict     map[string]uint8
 }
 
-func NewServer(framebuffer *framebuffer.FrameBuffer, width uint16, height uint16) (*PixelServer) {
+func NewServer(framebuffer *framebuffer.FrameBuffer, shouldRender bool, width uint16, height uint16) (*PixelServer) {
 	pixels := make([][]Pixel, width)
 	for i := uint16(0); i < width; i++ {
 		pixels[i] = make([]Pixel, height)
@@ -41,7 +42,7 @@ func NewServer(framebuffer *framebuffer.FrameBuffer, width uint16, height uint16
 		panic(err)
 	}
 
-	server := PixelServer{pixels, width, height, framebuffer, &socket, make([]net.Conn, 0), false, map[string]int{}, map[string]uint8{}}
+	server := PixelServer{pixels, width, height, framebuffer, shouldRender, &socket, make([]net.Conn, 0), false, map[string]int{}, map[string]uint8{}}
 
 	for i := 0; i < 256; i++ {
 		stringVal := fmt.Sprintf("%02x", i)
@@ -117,7 +118,9 @@ func (server *PixelServer) setPixel(x uint16, y uint16, r uint8, g uint8, b uint
 		return
 	}
 
-	//server.Pixels[x][y] = *pixel
+	server.Pixels[x][y].R = r
+	server.Pixels[x][y].G = g
+	server.Pixels[x][y].B = b
 	server.framebuffer.WritePixel(int(x), int(y), r, g, b)
 }
 
