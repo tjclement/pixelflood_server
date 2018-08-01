@@ -25,7 +25,7 @@ type PixelServer struct {
 	shouldRender bool
 	socket       *net.Listener
 	connections  []net.Conn
-	udpConn		 net.UDPConn
+	udpConn		 *net.UDPConn
 	shouldClose  bool
 	intDict      map[string]int
 	byteDict     map[string]uint8
@@ -43,7 +43,7 @@ func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width ui
 		panic(err)
 	}
 
-	var udpConn net.PacketConn
+	var udpConn *net.UDPConn
 
 	if useUdp {
 		udpAddr, _ := net.ResolveUDPAddr("udp", ":1235")
