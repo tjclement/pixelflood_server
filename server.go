@@ -25,12 +25,13 @@ type PixelServer struct {
 	shouldRender bool
 	socket       *net.Listener
 	connections  []net.Conn
+	udpConn		 net.UDPConn
 	shouldClose  bool
 	intDict      map[string]int
 	byteDict     map[string]uint8
 }
 
-func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width uint16, height uint16) (*PixelServer) {
+func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width uint16, height uint16, useUdp bool) (*PixelServer) {
 	pixels := make([][]Pixel, width)
 	for i := uint16(0); i < width; i++ {
 		pixels[i] = make([]Pixel, height)
@@ -42,7 +43,18 @@ func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width ui
 		panic(err)
 	}
 
-	server := PixelServer{pixels, width, height, framebuffer, shouldRender, &socket, make([]net.Conn, 0), false, map[string]int{}, map[string]uint8{}}
+	var udpConn net.PacketConn
+
+	if useUdp {
+		udpAddr, _ := net.ResolveUDPAddr("udp", ":1235")
+		udpConn, err = net.ListenUDP("udp", udpAddr)
+
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	server := PixelServer{pixels, width, height, framebuffer, shouldRender, &socket, make([]net.Conn, 0), udpConn, false, map[string]int{}, map[string]uint8{}}
 
 	for i := 0; i < 256; i++ {
 		stringVal := fmt.Sprintf("%02x", i)
@@ -79,6 +91,25 @@ func (server *PixelServer) Stop() {
 		conn.Close()
 	}
 	(*server.socket).Close()
+}
+
+func (server *PixelServer) runUdp() {
+	payload := make([]byte, 2048)
+	for !server.shouldClose {
+		amount, err := server.udpConn.Read(payload)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if amount < 7 {
+			fmt.Println("UDP message too short")
+		}
+
+		x, y, r, g, b := uint16(payload[0] << 8 + payload[1]), uint16(payload[2] << 8 + payload[3]), payload[4], payload[5], payload[6]
+		fmt.Println("UDP", x, y, r, g, b)
+		server.setPixel(x, y, r, g, b)
+	}
 }
 
 func (server *PixelServer) handleRequest(conn *net.Conn) {

@@ -17,6 +17,7 @@ func main() {
 	display := flag.String("display", "/dev/fb0", "Name of the framebuffer device to write to")
 	profile := flag.Bool("profile", false, "Set to true to enable CPU profiling > cpu.profile")
 	proxy := flag.Bool("proxy", false, "Set to true to disable writing to screen, and instead proxy to other pixelflood servers")
+	udp := flag.Bool("udp", false, "Set to true to use UDP on port 1235 with the binary protocol")
 	flag.Parse()
 
 	if *profile {
@@ -41,13 +42,13 @@ func main() {
 	}
 
 	fmt.Println("Starting server")
-	server := pixelflood_server.NewServer(fb, !*proxy, uint16(*screen_width), uint16(*screen_height))
+	server := pixelflood_server.NewServer(fb, !*proxy, uint16(*screen_width), uint16(*screen_height), *udp)
 	go server.Run()
 	defer server.Stop()
 
 	if *proxy {
 		fmt.Println("Starting proxies")
-		proxy1 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1234", 0, 0, uint16(*screen_width/2), uint16(*screen_height), server)
+		proxy1 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1235", 0, 0, uint16(*screen_width/2), uint16(*screen_height), server)
 		fmt.Println("Connecting proxy 1")
 		err := proxy1.Connect()
 		if err != nil {
