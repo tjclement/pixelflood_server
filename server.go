@@ -72,6 +72,10 @@ func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width ui
 }
 
 func (server *PixelServer) Run() {
+	if server.udpConn != nil {
+		go server.runUdp()
+	}
+
 	for !server.shouldClose {
 		conn, err := (*server.socket).Accept()
 
