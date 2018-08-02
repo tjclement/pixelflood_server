@@ -7,13 +7,13 @@ import (
 )
 
 type Proxy struct {
-	server *PixelServer
-	conn net.Conn
-	address string
-	x_begin uint16
-	y_begin uint16
-	x_end uint16
-	y_end uint16
+	server      *PixelServer
+	conn        net.Conn
+	address     string
+	x_begin     uint16
+	y_begin     uint16
+	x_end       uint16
+	y_end       uint16
 	shouldClose bool
 }
 
@@ -36,9 +36,10 @@ func (p *Proxy) Connect() error {
 func (p *Proxy) Run() {
 	fmt.Println("run")
 	for !p.shouldClose {
-		for x := p.x_begin; x < p.x_end; x ++ {
-			for y := p.y_begin; y < p.y_end; y++ {
+		for y := p.y_begin; y < p.y_end; y++ {
+			for x := p.x_begin; x < p.x_end; x ++ {
 				pixel := p.server.Pixels[x][y]
+				fmt.Println("PX", x, y, pixel.R, pixel.G, pixel.B)
 				if p.conn != nil {
 					_, err := p.conn.Write([]byte{uint8(x >> 8), uint8(x & 0xFF), uint8(y >> 8), uint8(y & 0xFF), pixel.R, pixel.G, pixel.B});
 					if err != nil {

@@ -61,10 +61,16 @@ func main() {
 		go proxy1.Run()
 		defer proxy1.Stop()
 
-		//proxy2 := pixelflood_server.NewProxy("pixelpush2.campzone.lan:1234", uint16(*screen_width/2), uint16(*screen_height/2), uint16(*screen_width), uint16(*screen_height), server)
+		proxy2 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1235", uint16(*screen_width/2), uint16(*screen_height), uint16(*screen_width), uint16(*screen_height), server)
+		fmt.Println("Connecting proxy 2")
+		err = proxy2.Connect()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		//go proxy2.Run()
-		//defer proxy2.Stop()
+		fmt.Println("Successfully started proxy 2")
+		go proxy2.Run()
+		defer proxy2.Stop()
 	}
 
 	c := make(chan os.Signal, 1)
