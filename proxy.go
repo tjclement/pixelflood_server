@@ -22,7 +22,7 @@ func NewProxy(address string, x_begin, y_begin, x_end, y_end uint16, server *Pix
 }
 
 func (p *Proxy) Connect() error {
-	conn, err := net.DialTimeout("udp", p.address, 5*time.Second)
+	conn, err := net.DialTimeout("tcp", p.address, 5*time.Second)
 
 	if err != nil {
 		fmt.Printf("Error setting up UDP connection: %s\r\n", err.Error())
@@ -40,7 +40,8 @@ func (p *Proxy) Run() {
 			for x := p.x_begin; x < p.x_end; x ++ {
 				pixel := p.server.Pixels[x][y]
 				if p.conn != nil {
-					_, err := p.conn.Write([]byte{uint8(x >> 8), uint8(x & 0xFF), uint8(y >> 8), uint8(y & 0xFF), pixel.R, pixel.G, pixel.B});
+					//_, err := p.conn.Write([]byte{uint8(x >> 8), uint8(x & 0xFF), uint8(y >> 8), uint8(y & 0xFF), pixel.R, pixel.G, pixel.B});
+					_, err := p.conn.Write([]byte(fmt.Sprintf("PX %d %d %02x%02x%02x\n", x, y, pixel.R, pixel.G, pixel.B)))
 					if err != nil {
 						fmt.Printf("Error writing to proxy connection: %s\r\n", err.Error())
 					}
