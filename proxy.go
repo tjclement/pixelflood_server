@@ -39,7 +39,6 @@ func (p *Proxy) Run() {
 		for y := p.y_begin; y < p.y_end; y++ {
 			for x := p.x_begin; x < p.x_end; x ++ {
 				pixel := p.server.Pixels[x][y]
-				fmt.Println("PX", x, y, pixel.R, pixel.G, pixel.B)
 				if p.conn != nil {
 					_, err := p.conn.Write([]byte{uint8(x >> 8), uint8(x & 0xFF), uint8(y >> 8), uint8(y & 0xFF), pixel.R, pixel.G, pixel.B});
 					if err != nil {
