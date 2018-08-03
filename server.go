@@ -98,7 +98,7 @@ func (server *PixelServer) Stop() {
 }
 
 func (server *PixelServer) runUdp() {
-	payload := make([]byte, 2048)
+	payload := make([]byte, 8)
 	for !server.shouldClose {
 		amount, err := server.udpConn.Read(payload)
 
@@ -106,8 +106,8 @@ func (server *PixelServer) runUdp() {
 			fmt.Println(err)
 		}
 
-		if amount < 7 {
-			fmt.Println("UDP message too short")
+		if amount != 7 {
+			fmt.Println("UDP message invalid length")
 		}
 
 		x, y, r, g, b := uint16(payload[0] << 8 + payload[1]), uint16(payload[2] << 8 + payload[3]), payload[4], payload[5], payload[6]
