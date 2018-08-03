@@ -110,9 +110,8 @@ func (server *PixelServer) runUdp() {
 			fmt.Println("UDP message invalid length")
 		}
 
-		x, y, r, g, b := uint16((payload[0] << 8) + payload[1]), uint16((payload[2] << 8) + payload[3]), payload[4], payload[5], payload[6]
+		x, y, r, g, b := uint16(uint16(payload[0]) << 8 + uint16(payload[1])), uint16((uint16(payload[2]) << 8) + uint16(payload[3])), payload[4], payload[5], payload[6]
 		server.setPixel(x, y, r, g, b)
-		fmt.Println(x, y, payload[0], payload[1], payload[2], payload[3])
 	}
 }
 
