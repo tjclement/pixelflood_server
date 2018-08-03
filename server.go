@@ -25,13 +25,14 @@ type PixelServer struct {
 	shouldRender bool
 	socket       *net.Listener
 	connections  []net.Conn
-	udpConn		 *net.UDPConn
+	udpConn      *net.UDPConn
+	udpThread    int
 	shouldClose  bool
 	intDict      map[string]int
 	byteDict     map[string]uint8
 }
 
-func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width uint16, height uint16, useUdp bool) (*PixelServer) {
+func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width uint16, height uint16, useUdp bool, udpThreads int) (*PixelServer) {
 	pixels := make([][]Pixel, width)
 	for i := uint16(0); i < width; i++ {
 		pixels[i] = make([]Pixel, height)
@@ -54,7 +55,7 @@ func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width ui
 		}
 	}
 
-	server := PixelServer{pixels, width, height, framebuffer, shouldRender, &socket, make([]net.Conn, 0), udpConn, false, map[string]int{}, map[string]uint8{}}
+	server := PixelServer{pixels, width, height, framebuffer, shouldRender, &socket, make([]net.Conn, 0), udpConn, udpThreads,false, map[string]int{}, map[string]uint8{}}
 
 	for i := 0; i < 256; i++ {
 		stringVal := fmt.Sprintf("%02x", i)
@@ -73,7 +74,9 @@ func NewServer(framebuffer *framebuffer.Framebuffer, shouldRender bool, width ui
 
 func (server *PixelServer) Run() {
 	if server.udpConn != nil {
-		go server.runUdp()
+		for i := 0; i < server.udpThread; i ++ {
+			go server.runUdp()
+		}
 	}
 
 	for !server.shouldClose {

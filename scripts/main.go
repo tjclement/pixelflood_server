@@ -18,6 +18,7 @@ func main() {
 	profile := flag.Bool("profile", false, "Set to true to enable CPU profiling > cpu.profile")
 	proxy := flag.Bool("proxy", false, "Set to true to disable writing to screen, and instead proxy to other pixelflood servers")
 	udp := flag.Bool("udp", false, "Set to true to use UDP on port 1235 with the binary protocol")
+	udp_threads := flag.Int("udp_threads", 8, "Amount of threads to run for the binary UDP protocol receiving")
 	flag.Parse()
 
 	if *profile {
@@ -44,7 +45,7 @@ func main() {
 	}
 
 	fmt.Println("Starting server")
-	server := pixelflood_server.NewServer(fb, !*proxy, uint16(*screen_width), uint16(*screen_height), *udp)
+	server := pixelflood_server.NewServer(fb, !*proxy, uint16(*screen_width), uint16(*screen_height), *udp, *udp_threads)
 	go server.Run()
 	defer server.Stop()
 
