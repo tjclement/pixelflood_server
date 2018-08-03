@@ -22,7 +22,7 @@ func NewProxy(address string, x_begin, y_begin, x_end, y_end uint16, server *Pix
 }
 
 func (p *Proxy) Connect() error {
-	conn, err := net.DialTimeout("tcp", p.address, 5*time.Second)
+	conn, err := net.DialTimeout("udp", p.address, 5*time.Second)
 
 	if err != nil {
 		fmt.Printf("Error setting up UDP connection: %s\r\n", err.Error())
