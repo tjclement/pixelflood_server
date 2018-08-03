@@ -50,7 +50,7 @@ func main() {
 
 	if *proxy {
 		fmt.Println("Starting proxies")
-		proxy1 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1234", 0, 0, uint16(*screen_width/2), uint16(*screen_height), server)
+		proxy1 := pixelflood_server.NewProxy("pixelpush1.campzone.lan:1235", 0, 0, uint16(*screen_width/2), uint16(*screen_height), server)
 		fmt.Println("Connecting proxy 1")
 		err := proxy1.Connect()
 		if err != nil {
